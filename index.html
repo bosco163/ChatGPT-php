@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ChatGPT 3.5</title>
+<style>
+body {
+  font-family: Arial, sans-serif;
+  margin: 0;
+  padding: 0;
+}
+
+.chat-container {
+  max-width: 600px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.chat-box {
+  border: 1px solid #ccc;
+  padding: 10px;
+  height: 500px;
+  overflow-y: scroll;
+  margin-bottom: 10px;
+}
+
+input[type="text"] {
+  width: calc(100% - 80px);
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  margin-right: 10px;
+}
+
+button {
+  padding: 10px 20px;
+  background-color: #007bff;
+  color: #fff;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+button:hover {
+  background-color: #0056b3;
+}
+
+#delete-history {
+  background-color: #dc3545;
+}
+
+#delete-history:hover {
+  background-color: #c82333;
+}
+</style>
+</head>
+<body>
+<div class="chat-container">
+    <div id="chat-box" class="chat-box"></div>
+    <input type="text" id="user-input" placeholder="询问ChatGPT..."><button onclick="handleSend()">发送</button>
+    <button id="delete-history">清空</button> <!-- 删除聊天记录按钮 -->
+</div>
+<script>
+// 尝试从localStorage中读取聊天记录来初始化chatHistory
+let chatHistory = JSON.parse(localStorage.getItem('chatHistory')) || [];
+
+// 页面加载完成后，立即更新聊天框以显示存储的聊天记录
+document.addEventListener('DOMContentLoaded', () => {
+  chatHistory.forEach(item => updateChatBox(item.role, item.content));
+});
+
+async function handleSend() {
+  const input = document.getElementById('user-input');
+  const message = input.value;
+  input.value = ''; // 清空输入框
+
+  if (message.trim() === '') return; // 如果输入为空则不做任何事
+
+  // 更新聊天记录和聊天框
+  chatHistory.push({ role: 'user', content: message });
+  updateChatBox('user', message);
+  localStorage.setItem('chatHistory', JSON.stringify(chatHistory)); // 同步到localStorage
+
+  // 准备请求数据，包括之前的聊天记录
+  const requestData = {
+    messages: chatHistory.concat([{ role: 'system', content: 'You are a helpful assistant.' }])
+  };
+
+  const response = await fetch('chat.php', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(requestData),
+  });
+
+  const data = await response.json();
+  const reply = data.choices[0].message.content;
+
+  // 更新聊天记录和聊天框
+  chatHistory.push({ role: 'assistant', content: reply });
+  updateChatBox('gpt', reply);
+  localStorage.setItem('chatHistory', JSON.stringify(chatHistory)); // 同步到localStorage
+}
+
+function updateChatBox(sender, message) {
+  const chatBox = document.getElementById('chat-box');
+  const messageElement = document.createElement('div');
+  messageElement.textContent = `${sender === 'user' ? '😊: ' : '🤖: '}${message}`;
+  chatBox.appendChild(messageElement);
+
+  // 滚动到聊天框的底部，确保最新消息可见
+  chatBox.scrollTop = chatBox.scrollHeight;
+}
+
+// 删除聊天记录的逻辑
+document.getElementById('delete-history').addEventListener('click', () => {
+  localStorage.removeItem('chatHistory'); // 从localStorage中删除聊天记录
+  chatHistory = []; // 清空内存中的聊天记录
+  document.getElementById('chat-box').innerHTML = ''; // 清空聊天框显示
+});
+</script>
+</body>
+</html>
